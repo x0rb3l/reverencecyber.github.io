@@ -69,4 +69,14 @@
   }, { threshold: 0.5 });
 
   counters.forEach((el) => countObserver.observe(el));
+
+  const codeBlocks = document.querySelectorAll('.article-body pre code');
+  if (codeBlocks.length) {
+    const script = document.createElement('script');
+    script.src = '/js/highlight.min.js';
+    script.onload = () => {
+      codeBlocks.forEach((block) => window.hljs.highlightElement(block));
+    };
+    document.head.appendChild(script);
+  }
 })();

@@ -80,8 +80,7 @@
 <figure><img loading="lazy" alt="CTF — Exploiting Corellium’s GlitchChat iOS Application" src="/blog/img/glitchchat-ios/08.png" /><figcaption>AI image warning</figcaption></figure>
 <p>Since the <em>_png_aixx_ctf </em>function prints the success message to <em>stderr</em>, we will need a way to validate that the function is called. Setting a breakpoint on the function using a debugger is one way to do this, but we can also use <a href="https://frida.re/"><strong>Frida</strong></a><strong> </strong>to hook the <em>fprintf </em>function and read the contents of the second argument.</p>
 <p>In the Frida script below, I check the second argument of <em>fprintf </em>to see if it contains the string “flag!” and print a message to the console stating that the flag was found.</p>
-<pre><code>
-// Frida script with a function to hook the fprintf function, print the arguments and the return value
+<pre><code class="language-javascript">// Frida script with a function to hook the fprintf function, print the arguments and the return value
 
 function hook_fprintf() {
  console.log("Hooking fprintf");
