@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>lightbox unit</title>
+  <script src="../js/lightbox.js"></script>
+</head>
+<body>
+  <nav id="nav">
+    <img id="logo" src="/wolf_logo_modern_nobg.png" alt="Reverence Cyber" />
+  </nav>
+  <article class="article-body">
+    <figure>
+      <img id="fig" src="/blog/img/byovd-reloaded/01.png" alt="Qilin panel" />
+    </figure>
+  </article>
+  <pre id="results"></pre>
+  <script>
+    (function () {
+      var results = [];
+      function check(name, cond, extra) {
+        results.push({ name: name, ok: !!cond, extra: extra || null });
+      }
+      try {
+        var L = window.ReverenceLightbox;
+        check("global-attached", !!L);
+        check("no-commonjs-module", typeof module === "undefined");
+        check("no-require", typeof require === "undefined");
+        check("window-defined", typeof window !== "undefined");
+
+        var fig = document.getElementById("fig");
+        var logo = document.getElementById("logo");
+        var hrefBefore = String(window.location.href);
+
+        check("figure-is-target", L.isFigureTarget(fig) === true);
+        check("logo-not-target", L.isFigureTarget(logo) === false);
+
+        L.handleClick({ target: fig, preventDefault: function () {} }, document);
+        check("open-sets-state", L.isOpen(document) === true);
+        check("open-src", L.currentSrc(document) === "/blog/img/byovd-reloaded/01.png");
+        check("url-unchanged-on-open", String(window.location.href) === hrefBefore);
+        check("url-not-png", String(window.location.pathname).indexOf(".png") === -1);
+
+        L.handleKeydown({ key: "Escape" }, document);
+        check("escape-closes", L.isOpen(document) === false);
+        check("src-cleared", L.currentSrc(document) === "");
+
+        L.handleClick({ target: fig, preventDefault: function () {} }, document);
+        var backdrop = document.querySelector(".image-lightbox-backdrop");
+        check("backdrop-exists", !!backdrop);
+        L.handleClick({ target: backdrop, preventDefault: function () {} }, document);
+        check("backdrop-closes", L.isOpen(document) === false);
+
+        L.handleClick({ target: logo, preventDefault: function () {} }, document);
+        check("logo-does-not-open", L.isOpen(document) === false);
+        check("url-unchanged-final", String(window.location.href) === hrefBefore);
+      } catch (err) {
+        results.push({ name: "threw", ok: false, extra: String(err && err.stack || err) });
+      }
+      var failed = results.filter(function (r) { return !r.ok; });
+      var payload = { ok: failed.length === 0, failed: failed, results: results, href: String(window.location.href) };
+      document.getElementById("results").textContent = JSON.stringify(payload);
+      document.documentElement.setAttribute("data-lightbox-unit", payload.ok ? "pass" : "fail");
+    })();
+  </script>
+</body>
+</html>
