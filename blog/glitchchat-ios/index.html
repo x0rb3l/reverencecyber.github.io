@@ -83,29 +83,29 @@
 <pre><code class="language-javascript">// Frida script with a function to hook the fprintf function, print the arguments and the return value
 
 function hook_fprintf() {
- console.log("Hooking fprintf");
- var module = Module.load("libSystem.B.dylib");
- if (module == null) {
- console.log("Module not found");
- return;
- }
- var fprintf = module.getExportByName("fprintf");
- if (fprintf == null) {
- console.log("Symbol not found");
- return;
- }
- Interceptor.attach(fprintf, {
- onEnter: function(args) {
- // Check if the string "flag!" is in the first argument
- var str = Memory.readCString(args[1]);
- if (str.indexOf("flag!") != -1) {
- console.log("You have found the flag!");
- }
- },
- onLeave: function(retval) {
- //console.log("Return value: " + retval);
- }
- });
+    console.log("Hooking fprintf");
+    var module = Module.load("libSystem.B.dylib");
+    if (module == null) {
+        console.log("Module not found");
+        return;
+    }
+    var fprintf = module.getExportByName("fprintf");
+    if (fprintf == null) {
+        console.log("Symbol not found");
+        return;
+    }
+    Interceptor.attach(fprintf, {
+        onEnter: function (args) {
+            // Check if the string "flag!" is in the first argument
+            var str = Memory.readCString(args[1]);
+            if (str.indexOf("flag!") != -1) {
+                console.log("You have found the flag!");
+            }
+        },
+        onLeave: function (retval) {
+            //console.log("Return value: " + retval);
+        },
+    });
 }
 
 hook_fprintf();</code></pre>
