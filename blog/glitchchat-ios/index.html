@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CTF — Exploiting Corellium’s GlitchChat iOS Application — Reverence Cyber</title>
+  <meta name="description" content="I recently completed an iOS mobile application capture the flag challenge created by Corellium and I wanted to briefly share my analysis and thoughts on it." />
+  <link rel="canonical" href="https://reverencecyber.com/blog/glitchchat-ios/" />
+  <meta property="og:title" content="CTF — Exploiting Corellium’s GlitchChat iOS Application — Reverence Cyber" />
+  <meta property="og:description" content="I recently completed an iOS mobile application capture the flag challenge created by Corellium and I wanted to briefly share my analysis and thoughts on it." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://reverencecyber.com/blog/glitchchat-ios/" />
+  <meta property="og:image" content="https://reverencecyber.com/blog/img/glitchchat-ios/01.png" />
+  <link rel="icon" type="image/png" href="/wolf_logo_head_nobg.png" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/site.css" />
+</head>
+<body>
+
+
+<nav id="nav">
+  <div class="nav-logo">
+    <a href="/"><img src="/wolf_logo_modern_nobg.png" alt="Reverence Cyber"></a>
+  </div>
+  <div class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </div>
+  <ul class="nav-links" id="navLinks">
+    <li><a href="/#about">About</a></li>
+    <li><a href="/#capabilities">Capabilities</a></li>
+    <li><a href="/#certifications">Certifications</a></li>
+    <li><a href="/#performance">Performance</a></li>
+    <li><a href="/blog/" aria-current="page">Blog</a></li>
+    <li><a href="/#contact" class="nav-cta">Contact</a></li>
+  </ul>
+</nav>
+
+<article class="article-page">
+  <a class="section-label" href="/blog/">// Blog</a>
+  <h1>CTF — Exploiting Corellium’s GlitchChat iOS Application</h1>
+  <div class="article-meta">
+    Robel Campbell, <time datetime="2024-03-08">Mar 8, 2024</time>
+  </div>
+  <div class="blog-tags article-tags"><span class="blog-tag">mobile hacking</span><span class="blog-tag">exploit development</span><span class="blog-tag">ios</span><span class="blog-tag">penetration testing</span><span class="blog-tag">reverse engineering</span></div>
+  <div class="article-body">
+    <figure><img loading="eager" alt="CTF — Exploiting Corellium’s GlitchChat iOS Application" src="/blog/img/glitchchat-ios/01.png" /></figure>
+<h2>Introduction</h2>
+<blockquote>NOTE: The following may contain some spoilers for the challenge! This blog will not publish answers but some of the content may provide hints.</blockquote>
+<p>I recently completed an iOS mobile application capture the flag challenge created by <a href="https://www.corellium.com/">Corellium</a> and I wanted to briefly share my analysis and thoughts on it.</p>
+<p>The target is a messenger app named GlitchChat, suffering from multiple vulnerabilities including memory corruption, which will be the focus of this blog.</p>
+<p>For more information you can sign up to view the webinar for free and read the accompanying blog. The blog contains a link to download the app:</p>
+<p>Webinar: <a href="https://www.corellium.com/corellium-messaging-app-vulnerabilities">Watch Now: Experimenting with Messaging App Vulnerabilities (corellium.com)</a></p>
+<p>Blog: <a href="https://www.corellium.com/glitchchat-ios">Corellium GlitchChat</a></p>
+<p>Corellium is a great resource for anyone trying to get into mobile penetration testing. I also highly recommend <a href="https://book.hacktricks.xyz/mobile-pentesting/ios-pentesting">HackTricks </a>mobile pentesting section.</p>
+<h2>Prerequisites</h2>
+<p>The challenge is intended to be completed using Corellium’s iOS hardware virtualization platform, however it is not necessary.</p>
+<p>You will <strong>need</strong> the following:</p>
+<ul><li>Jailbroken iPhone ≥ 7</li><li>Python ≥ 3.9</li><li>PC or MacBook (MacBook preferred)</li><li>USB connector</li></ul>
+<p>I used the following tools to test, discover and exploit the application:</p>
+<ul><li>Binary Ninja (disassembler and debugger)</li><li>Frida</li><li>Objection</li><li>010 Hex Editor</li><li>iProxy</li></ul>
+<p>How to jailbreak an iPhone and load apps is out of scope for this blog. Further setup for the app and explanation of the scenario is explained in the Corellium blog.</p>
+<h2>Analysis</h2>
+<p>The target is a simple messenger app that communicates using the MQTT protocol. Once a server is running, a connection can be made to that server by specifying a username as well as the IP address and port on the main page.</p>
+<figure><img loading="lazy" alt="CTF — Exploiting Corellium’s GlitchChat iOS Application" src="/blog/img/glitchchat-ios/02.png" /><figcaption>GlitchChat main screen</figcaption></figure>
+<p>Interaction with the chat server can be scripted with python. The image below shows an example python script using an MQTT library to send the message “<em>Hello!</em>” to the recipient and the captured network traffic for that message.</p>
+<figure><img loading="lazy" alt="CTF — Exploiting Corellium’s GlitchChat iOS Application" src="/blog/img/glitchchat-ios/03.png" /><figcaption>Using python to send text messages.</figcaption></figure>
+<p>When a user sends an image, a similar message structure is used, however the message field must be a base64 encoded PNG file.</p>
+<figure><img loading="lazy" alt="CTF — Exploiting Corellium’s GlitchChat iOS Application" src="/blog/img/glitchchat-ios/04.png" /><figcaption>Sending a PNG image</figcaption></figure>
+<p>The app replies with a message validating the storage location of the image on the device and the memory address of the function used to process that image. The address is in decimal format.</p>
+<figure><img loading="lazy" alt="CTF — Exploiting Corellium’s GlitchChat iOS Application" src="/blog/img/glitchchat-ios/05.png" /><figcaption>Validation message</figcaption></figure>
+<p>You will note that the memory address follows the text “AI result”. This is because the app is intended to detect AI-generated images based on the header information. Using a custom implementation of the <strong>libpng</strong> library, the app includes several functions that handle the processing of these images to label them as generated by tools like <em>DALL-E, Midjourney, Stable Diffusion, </em>etc.</p>
+<p>There is one function named <em>_png_aixx_ctf</em> that seems like a function of interest; however, there are no cross-references to it, meaning nothing calls or interacts with that function directly. This will be the target of our exploit.</p>
+<figure><img loading="lazy" alt="CTF — Exploiting Corellium’s GlitchChat iOS Application" src="/blog/img/glitchchat-ios/06.png" /><figcaption>png_aixx_ctf</figcaption></figure>
+<h2>Exploitation</h2>
+<p>Based on initial analysis and the track record of capture the flags, one can assume that this app may suffer from a memory corruption bug that can be exploited to call the <em>_png_aixx_ctf </em>function using a <a href="https://en.wikipedia.org/wiki/Return-oriented_programming">ROP (Return-Oriented Programming) chain</a>.</p>
+<p>Since <strong>libpng </strong>contains custom code, we can focus our analysis there and perform controlled tests against those functions to determine where the flaw exists.</p>
+<p>You will find that the instruction pointer can be hijacked and replaced with an arbitrary pointer of our choosing. In this case, we will replace it with the pointer to <em>_png_aixx_ctf </em>which prints a message that the “flag” has been captured. Since <a href="https://en.wikipedia.org/wiki/Address_space_layout_randomization">ASLR (Address Space Layout Randomization)</a> is enabled, you will need to use the memory address leak found in the returned message to calculate the address of <em>_png_aixx_ctf.</em></p>
+<figure><img loading="lazy" alt="CTF — Exploiting Corellium’s GlitchChat iOS Application" src="/blog/img/glitchchat-ios/07.png" /><figcaption>Exploit python script</figcaption></figure>
+<p>If an aixx header is crafted and properly parsed by the app, a warning message will pop up in the recipient's chat alerting them that the image is AI-generated.</p>
+<figure><img loading="lazy" alt="CTF — Exploiting Corellium’s GlitchChat iOS Application" src="/blog/img/glitchchat-ios/08.png" /><figcaption>AI image warning</figcaption></figure>
+<p>Since the <em>_png_aixx_ctf </em>function prints the success message to <em>stderr</em>, we will need a way to validate that the function is called. Setting a breakpoint on the function using a debugger is one way to do this, but we can also use <a href="https://frida.re/"><strong>Frida</strong></a><strong> </strong>to hook the <em>fprintf </em>function and read the contents of the second argument.</p>
+<p>In the Frida script below, I check the second argument of <em>fprintf </em>to see if it contains the string “flag!” and print a message to the console stating that the flag was found.</p>
+<pre><code class="language-javascript">// Frida script with a function to hook the fprintf function, print the arguments and the return value
+
+function hook_fprintf() {
+    console.log("Hooking fprintf");
+    var module = Module.load("libSystem.B.dylib");
+    if (module == null) {
+        console.log("Module not found");
+        return;
+    }
+    var fprintf = module.getExportByName("fprintf");
+    if (fprintf == null) {
+        console.log("Symbol not found");
+        return;
+    }
+    Interceptor.attach(fprintf, {
+        onEnter: function (args) {
+            // Check if the string "flag!" is in the first argument
+            var str = Memory.readCString(args[1]);
+            if (str.indexOf("flag!") != -1) {
+                console.log("You have found the flag!");
+            }
+        },
+        onLeave: function (retval) {
+            //console.log("Return value: " + retval);
+        },
+    });
+}
+
+hook_fprintf();</code></pre>
+<figure><img loading="lazy" alt="CTF — Exploiting Corellium’s GlitchChat iOS Application" src="/blog/img/glitchchat-ios/09.png" /><figcaption>Frida output</figcaption></figure>
+<p>While my analysis ends here, you could take this further and create a full ROP chain to call arbitrary functions and do your bidding.</p>
+<h2>Final Thoughts</h2>
+<p>There were a couple other interesting vulnerabilities to exploit in the application leading to data exfiltration, but I found the memory corruption vulnerability to be the most fascinating due to the fact that it can be classified as a zero-click exploit, meaning it involves no user interaction.</p>
+<p>GlitchChat does a good job of demonstrating the nature of messenger app vulnerabilities and facilitating the approach to exploiting memory corruption bugs against a mobile device. Creating custom implementations of common libraries lack scrutiny from the broader community and runs the risk of introducing vulnerabilities which lead to catastrophic results.</p>
+  </div>
+  <div class="article-footer">
+    <p>First published on <a href="https://medium.com/reverence-cyber/ctf-exploiting-corelliums-glitchchat-ios-application-ea0d69ed8720">Medium</a>.</p>
+    <div class="article-pager"><a class="pager-link" href="/blog/decoding-the-craft/"><span class="pager-label">Older</span><span class="pager-title">Decoding the Craft: Essential Skills for Aspiring Reverse Engineers</span></a><a class="pager-link pager-next" href="/blog/cve-2024-0980-okta-verify/"><span class="pager-label">Newer</span><span class="pager-title">CVE-2024-0980: Okta Verify Arbitrary Code Execution Root Cause Analysis</span></a></div>
+    <a class="back-to-blog" href="/blog/">&larr; All posts</a>
+  </div>
+</article>
+
+
+<footer>
+  <div class="footer-inner">
+    <span class="footer-copy">&copy; 2026 Reverence Cyber LLC. All rights reserved.</span>
+    <span class="footer-vet">Veteran-Owned Small Business &middot; Dayton, OH</span>
+  </div>
+</footer>
+<script src="/js/lightbox.js"></script>
+<script src="/js/site.js"></script>
+
+</body>
+</html>

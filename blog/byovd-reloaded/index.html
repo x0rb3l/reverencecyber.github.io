@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BYOVD Reloaded: Abusing a New Driver to Kill EDR — Reverence Cyber</title>
+  <meta name="description" content="Cybercriminals continue to employ sophisticated tactics intended to evade traditional Endpoint Detection and Response (EDR), while maintaining a low profile and limiting the noise created by these activities. A recent…" />
+  <link rel="canonical" href="https://reverencecyber.com/blog/byovd-reloaded/" />
+  <meta property="og:title" content="BYOVD Reloaded: Abusing a New Driver to Kill EDR — Reverence Cyber" />
+  <meta property="og:description" content="Cybercriminals continue to employ sophisticated tactics intended to evade traditional Endpoint Detection and Response (EDR), while maintaining a low profile and limiting the noise created by these activities. A recent…" />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://reverencecyber.com/blog/byovd-reloaded/" />
+  <meta property="og:image" content="https://reverencecyber.com/blog/img/byovd-reloaded/01.png" />
+  <link rel="icon" type="image/png" href="/wolf_logo_head_nobg.png" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/site.css" />
+</head>
+<body>
+
+
+<nav id="nav">
+  <div class="nav-logo">
+    <a href="/"><img src="/wolf_logo_modern_nobg.png" alt="Reverence Cyber"></a>
+  </div>
+  <div class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </div>
+  <ul class="nav-links" id="navLinks">
+    <li><a href="/#about">About</a></li>
+    <li><a href="/#capabilities">Capabilities</a></li>
+    <li><a href="/#certifications">Certifications</a></li>
+    <li><a href="/#performance">Performance</a></li>
+    <li><a href="/blog/" aria-current="page">Blog</a></li>
+    <li><a href="/#contact" class="nav-cta">Contact</a></li>
+  </ul>
+</nav>
+
+<article class="article-page">
+  <a class="section-label" href="/blog/">// Blog</a>
+  <h1>BYOVD Reloaded: Abusing a New Driver to Kill EDR</h1>
+  <div class="article-meta">
+    Robel Campbell, <time datetime="2025-04-01">Apr 1, 2025</time>
+  </div>
+  <div class="blog-tags article-tags"><span class="blog-tag">edr</span><span class="blog-tag">exploitation</span><span class="blog-tag">windows</span><span class="blog-tag">byovd</span><span class="blog-tag">cybersecurity</span></div>
+  <div class="article-body">
+    <p><em>A reposting of the original found here: </em><a href="https://blackpointcyber.com/blog/qilin-ransomware-and-the-hidden-dangers-of-byovd/">https://blackpointcyber.com/blog/qilin-ransomware-and-the-hidden-dangers-of-byovd/</a></p>
+<p>My research on the driver’s exploitation was made possible by Blackpoint Cyber’s threat intel team and the Security Operation Center’s rapid response to the attack.</p>
+<p>For a full video walkthrough, check this out:</p>
+<div class="video-wrap"><iframe src="https://www.youtube-nocookie.com/embed/V8eYAzmDjwc" title="Video walkthrough" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div><p>Cybercriminals continue to employ sophisticated tactics intended to evade traditional Endpoint Detection and Response (EDR), while maintaining a low profile and limiting the noise created by these activities. A recent incident involving Qilin ransomware highlighted the evolving tactics of cybercriminals and the effectiveness of proactive defense. It’s important to understand the nefarious tooling and methodology now being leveraged due to historical organizational reliance of traditional EDR and the false sense of security that has arguably evolved from this.</p>
+<p>In this blog, we will unpack how Qilin ransomware affiliates leveraged a previously unknown driver, <strong>TPwSav.sys</strong>, to stealthily disable EDR measures, a technique known as <strong>bring-your-own-vulnerable-driver (BYOVD)</strong>. We’ll walk through the entire attack chain, from the initial compromise using stolen credentials to the final attempt at deploying ransomware. Most importantly, we’ll explain how the SOC’s rapid isolation of impacted systems and layered security approach thwarted the attackers’ tactics. By highlighting the capabilities and implications of exploiting newly discovered drivers, this blog aims to deepen your understanding of advanced ransomware threats and the proactive defenses necessary to counter them.</p>
+<h2>Actor Background</h2>
+<p>Qilin (aka: Agenda) ransomware was first observed in July 2022. It operates through a double extortion method, where victims’ data is stolen and leaked via a data leak site (pictured below) if the ransom demand is not paid. Qilin maintains variants that are written in both Golang and Rust programming languages and targets both Windows and Linux operating systems. Qilin operates as a ransomware-as-a-service (RaaS). Affiliates earn 80% of a payment of ransom demands of less than $3 million and 85% of ransom payments over $3 million.</p>
+<figure><img loading="eager" alt="BYOVD Reloaded: Abusing a New Driver to Kill EDR" src="/blog/img/byovd-reloaded/01.png" /></figure>
+<p>Qilin affiliates have been observed gaining initial access via social engineering attacks like phishing emails with malicious attachments, and valid credentials that have been leaked and/or purchased.</p>
+<p>A purported recruiter for the Qilin operation posted on a Russia-language cybercriminal forum advertising the RaaS, offering positions to qualified affiliates, and stating that affiliates are not allowed to target Commonwealth of Independent States (CIS) countries. This rule is commonly observed in ransomware operations.</p>
+<p>The Qilin affiliates have multiple options in the Qilin panel, indicating the ransomware is customizable for each victim. Affiliates can create and edit blog posts that contain information about attacked companies that have not paid a ransom, create accounts for members of their team by entering their nickname and credentials, and access support for the ransomware. Operators can customize the directories that will be skipped, files that will be skipped, processes that will be killed, mode of encrypting, and list of VMs that will not be killed/shut down.</p>
+<p>The Linux variant is compiled with GCC 11 in the ELF64 format and is 1.32MB in size. This variant, like the Windows variant, provides a number of options for the affiliates to ensure that the right files are encrypted.</p>
+<p>Qilin ransomware offers multiple encryption methods, which are configurable by the affiliate through the panel. One option uses AES-256 encryption to encrypt the files on the victim’s system and uses RSA-2048 to encrypt the generated key. Files are appended with a new random extension. The Linux version uses OpenSSL, and the public key is</p>
+<p>hardcoded at the address 0x004EB3A8. The statically linked OpenSSL library is used to facilitate the loading of the public key.</p>
+<h2>Recent Attacks</h2>
+<p>In August 2024, security researchers with Sophos reported that the Qilin ransomware group targeted a victim via compromised credentials. The dwell time in the victim environment was 18 days. The operators edited the domain policy to introduce a logon-based Group Policy Object (GPO) containing two items: A PowerShell script, IPScanner.ps1, and a batch script, logon.bat.</p>
+<p>The combination of the two scripts resulted in harvesting of credentials saved in Chrome browsers on machines connected to the network. This activity indicates that Qilin is likely changing tactics to include credential harvesting rather than exfiltrating large amounts of victim-specific data.</p>
+<p>In October 2024, Halcyon security researchers reported a new and updated version of the Qilin ransomware variant, dubbed “Qilin.B”. Qilin.B is written in the Rust programming language. According to the research by Halcyon, Qilin.B supports AES-256-CTR encryption for systems with Advanced Encryption Standard New Instructions (AES-NI) capabilities. Qilin.B uses RSA-4096 with Optimal Asymmetric Encryption Padding (OAEP) to safeguard encryption keys.</p>
+<p>Qilin.B was updated with new defense evasion techniques as well. Qilin.B still terminates services associated with security tools, clears Windows Event Logs, but also deletes itself to reduce indication that the malware was there.</p>
+<p>Blackpoint’s Security Operations Center (SOC) has encountered at least two incidents that included the use of Qilin ransomware. In both cases, Blackpoint’s SOC successfully prevented encryption by isolating impacted devices and working with partners to mitigate the threat.</p>
+<figure><img loading="lazy" alt="BYOVD Reloaded: Abusing a New Driver to Kill EDR" src="/blog/img/byovd-reloaded/02.png" /></figure>
+<h2>Historical Targeting</h2>
+<p>Qilin has listed 164 victims on their data leak site, with most of those victims being in the Industrials (Construction & Engineering) vertical. Qilin’s ransomware has targeted victims worldwide; with most of their reported victims in North America.</p>
+<p>The following graphs show the victims that were named on Qilin’s data leak site by industry and location. It is likely that the number of victims is higher when considering some victims either paid the ransom and/ordidn’t disclose the ransomware attack.</p>
+<figure><img loading="lazy" alt="BYOVD Reloaded: Abusing a New Driver to Kill EDR" src="/blog/img/byovd-reloaded/03.png" /></figure>
+<figure><img loading="lazy" alt="BYOVD Reloaded: Abusing a New Driver to Kill EDR" src="/blog/img/byovd-reloaded/04.png" /></figure>
+<h2>Attack Chain</h2>
+<p>The victim’s SSL VPN logs indicated a connected session from IP address 31.192.107[.]144 beginning on December 12, 2024, and lasted for over 6 hours. Another session began later in the day for an additional hour and a half. The IP belongs to the cloud service provider HOSTKEY based out of Russia.</p>
+<p>On one machine an executable named main.exe opened a reverse proxy to the IP 216.120.203[.]26 via secure shell (SSH). The IP belongs to the cloud hosting provider Shock Hosting. Written in Golang, the main.exe executable leveraged several open-sourced networking libraries with the simple purpose of exposing a remote tunnel into the network. The attacker proceeded to connect to internal machines using remote desktop protocol (RDP) and remote management tools.</p>
+<p>The attacker deployed a legitimate signed executable named upd.exe which sideloads a malicious dynamic link library (DLL) named avupdate.dll. The DLL was responsible for decoding and loading a customized version of the EDR killing tool named EDRSandblast.</p>
+<h2>Blackpoint’s Analysis of Qilin</h2>
+<p>When the ransomware is executed from the command line with the correct password, it outputs debug statements detailing each step of its operation. The sample also contains an embedded target account email address and password, which were used for initial access and lateral movement. Notably, the embedded account credentials belong to the managed service provider (MSP) associated with the targeted customer.</p>
+<figure><img loading="lazy" alt="BYOVD Reloaded: Abusing a New Driver to Kill EDR" src="/blog/img/byovd-reloaded/05.png" /><figcaption>Figure 1: Ransomware execution</figcaption></figure>
+<figure><img loading="lazy" alt="BYOVD Reloaded: Abusing a New Driver to Kill EDR" src="/blog/img/byovd-reloaded/06.png" /><figcaption>Figure 2: Embedded username and password</figcaption></figure>
+<p>The image below is a sample ransom note of the Qilin.B variant.</p>
+<figure><img loading="lazy" alt="BYOVD Reloaded: Abusing a New Driver to Kill EDR" src="/blog/img/byovd-reloaded/07.png" /><figcaption>Figure 3: Qilin ransom note</figcaption></figure>
+<h2>EDR Bypass Analysis</h2>
+<p>The following depicts how the ransomware successfully executed and bypassed the installed EDR before Blackpoint’s SOC prevented any further harm.</p>
+<p>There were several files involved in the attack, including files named upd.exe, avupdate.dll, web.dat and TPwSav.sys.</p>
+<p>The upd.exe portable executable (PE) is the Carbon Black Cloud Sensor AV update tool. In a normal setting, it loads a dynamic link library (DLL) named avupdate.dll to perform various update functions. In this case, the avupdate.dll sample contained malicious code.</p>
+<figure><img loading="lazy" alt="BYOVD Reloaded: Abusing a New Driver to Kill EDR" src="/blog/img/byovd-reloaded/08.png" /><figcaption>Figure 4: Imported library and functions for upd.exe</figcaption></figure>
+<p>An exported function from avupdate.dll named avupdate_get_version is tasked with loading and executing a file called web.dat using dynamically resolved Windows APIs. Additionally, it performs various anti-analysis techniques, such as detecting the presence of a virtual machine and checking if it is being debugged, to evade analysis and hinder reverse engineering efforts.</p>
+<figure><img loading="lazy" alt="BYOVD Reloaded: Abusing a New Driver to Kill EDR" src="/blog/img/byovd-reloaded/09.png" /><figcaption>Figure 5: Malicious exported function</figcaption></figure>
+<p>The web.dat file is a windows PE which is XOR encoded with the byte value 0x6a.</p>
+<figure><img loading="lazy" alt="BYOVD Reloaded: Abusing a New Driver to Kill EDR" src="/blog/img/byovd-reloaded/10.png" /><figcaption>Figure 6: Decoding web.dat</figcaption></figure>
+<p>The decoded PE is a customized variant of the tool EDRSandblast, designed to disable EDR products at the kernel level by exploiting a vulnerable signed driver. The tool includes a pre-populated list of kernel module address offsets, enabling it to locate critical functions and data structures within kernel memory.</p>
+<p>Rather than relying on one of the standard vulnerable drivers supported by the tool, the threat actor (TA) opted to use a driver named TPwSav.sys. This driver, originally developed for power-saving features on Toshiba laptops, is a signed Windows kernel driver, making it an attractive choice for bypassing EDR protections through a bring-your-own-vulnerable-driver (BYOVD) attack.</p>
+<figure><img loading="lazy" alt="BYOVD Reloaded: Abusing a New Driver to Kill EDR" src="/blog/img/byovd-reloaded/11.png" /><figcaption>Figure 7: EDRSandblast loading TPwSav.sys</figcaption></figure>
+<p>TPwSav.sys contains two IO control codes (IOCTLs) mapped to functions which allow arbitrary reading and writing of memory one byte at a time.</p>
+<figure><img loading="lazy" alt="BYOVD Reloaded: Abusing a New Driver to Kill EDR" src="/blog/img/byovd-reloaded/12.png" /><figcaption>Figure 8: IOCTL handler in TPwSav.sys</figcaption></figure>
+<p>Each function maps a physical memory address to its corresponding virtual address using the MmMapIoSpace function. It then either reads a single byte back into the input buffer or modifies it before unmapping the address with MmUnmapIoSpace.</p>
+<figure><img loading="lazy" alt="BYOVD Reloaded: Abusing a New Driver to Kill EDR" src="/blog/img/byovd-reloaded/13.png" /><figcaption>Figure 9: Vulnerable functions in TPwSav.sys</figcaption></figure>
+<p>Read-only memory protections can be bypassed by leveraging physical addresses to map virtual addresses and modify their contents. A common technique employed by rootkit authors is to overwrite the address of a legitimate driver’s major function handler with shellcode. Once modified, the handler is invoked, enabling the attacker to hijack its execution flow.</p>
+<p>In this case, the TA used these capabilities to overwrite the BeepDeviceControl function in the native Windows driver Beep.sys. The shellcode replacing this function implements a custom handler that processes an IOCTL of 0x222000, providing the ability to perform arbitrary read and write operations on kernel memory.</p>
+<p>The HijackBeep function plays a critical role in enumerating essential addresses, including Beep’s base address, the offset of BeepDeviceControl, and the address of IofCompleteRequest. Additionally, it retrieves virtual-to-physical address mappings by querying SystemSuperfetchInformation, specifically through the SuperFetchMemoryRangesQuery. Using the table of virtual-to-physical mappings, the function overwrites the BeepDeviceControl handler with the attacker’s shellcode. Before doing so, it patches the shellcode to include the relative offset to IofCompleteRequest found in the imports table, ensuring seamless execution of the hijacked code path.</p>
+<figure><img loading="lazy" alt="BYOVD Reloaded: Abusing a New Driver to Kill EDR" src="/blog/img/byovd-reloaded/14.png" /><figcaption>Figure 10: BeepDeviceControl hijacking code</figcaption></figure>
+<figure><img loading="lazy" alt="BYOVD Reloaded: Abusing a New Driver to Kill EDR" src="/blog/img/byovd-reloaded/15.png" /><figcaption>Figure 11: Custom shellcode handler</figcaption></figure>
+<p>Two functions are repeatedly invoked to execute the shellcode, enabling either an arbitrary read or write operation to any specified memory address. The input buffer, 24 bytes in size, includes the following parameters: the target memory address to read from or write to, an operation flag indicating the desired action (read or write), the size of the data to be read or written, and a data buffer that either stores the result of a read operation or contains the data to be written. These functions provide precise control over memory manipulation, facilitating the exploit’s objectives.</p>
+<figure><img loading="lazy" alt="BYOVD Reloaded: Abusing a New Driver to Kill EDR" src="/blog/img/byovd-reloaded/16.png" /><figcaption>Figure 12: EDRSandblast arbitrary read code</figcaption></figure>
+<figure><img loading="lazy" alt="BYOVD Reloaded: Abusing a New Driver to Kill EDR" src="/blog/img/byovd-reloaded/17.png" /><figcaption>Figure 13: EDRSandblast arbitrary write code</figcaption></figure>
+<p>The TA proceeds with removing kernel callback routines and kernel event tracing, rendering most EDR solutions ineffective.</p>
+<figure><img loading="lazy" alt="BYOVD Reloaded: Abusing a New Driver to Kill EDR" src="/blog/img/byovd-reloaded/18.png" /><figcaption>Figure 14: Removing callbacks and event tracing provider</figcaption></figure>
+<p>As of this writing, there is no public evidence of in-the-wild exploitation involving <strong>TPsSav.sys</strong> beyond the activity observed by Blackpoint’s SOC. Compiled in 2015 and holding a valid signature, this driver is an appealing candidate for BYOVD attacks aimed at disabling EDR. While interacting with the driver requires only low-level privileges, loading it and enumerating physical memory demand administrative privileges.</p>
+<p>By default, the EDRSandblast tool is configured to utilize three known vulnerable drivers that are already flagged as suspicious and likely blocked by most EDR vendors. To circumvent detection, malware authors customizing this tool often replace these drivers with a different vulnerable driver that remains undetected.</p>
+<p>Customizing EDRSandblast is not a novel concept, and examples of techniques used to overwrite code sections of Beep.sys with shellcode are publicly available. However, the expertise required to seamlessly integrate these components and execute the attack effectively remains a significant challenge. This was demonstrated by a sophisticated threat actor who successfully implemented the technique, showcasing a high level of skill and deep understanding of the Windows kernel to achieve their objectives.</p>
+<p>Considering that the Qilin sample represents a secondary variant distributed to affiliates through a Ransomware-as-a-Service (RaaS) model, it is highly probable that the customized EDR bypass tool was also acquired via dark web marketplaces.</p>
+<h2>Conclusion</h2>
+<p>The Qilin incident serves as a stark reminder that ransomware operations continue to innovate, exploiting even previously unknown vulnerabilities to bypass robust security measures. The attackers’ skillful use of a stealthy driver-loaded payload underscores the importance of vigilant threat hunting and real-time monitoring. Nevertheless, Blackpoint’s SOC demonstrated how thorough, coordinated response efforts can successfully halt even the most advanced threats. By swiftly isolating affected systems, investigating malicious activity, and leveraging a defense-in-depth strategy, the team neutralized the ransomware before any significant damage occurred. This case underscores the need for continued vigilance, strong partnerships, and ongoing security investments to stay ahead of rapidly evolving cyber threats.</p>
+<p><strong>LOLDrivers Project</strong>: <a href="https://github.com/magicsword-io/LOLDrivers/blob/main/yaml/c0634ed7-840e-4a7e-8b34-33efe50405c2.yaml">https://github.com/magicsword-io/LOLDrivers/blob/main/yaml/c0634ed7-840e-4a7e-8b34-33efe50405c2.yaml</a></p>
+<h2>Hashes</h2>
+<p>TPwSav.sys</p>
+<p class="hash-block">011df46e94218cbb2f0b8da13ab3cec397246fdc63436e58b1bf597550a647f6</p>
+<p>avupdate.dll</p>
+<p class="hash-block">d3af11d6bb6382717bf7b6a3aceada24f42f49a9489811a66505e03dd76fd1af</p>
+<p>main.exe</p>
+<p class="hash-block">aeddd8240c09777a84bb24b5be98e9f5465dc7638bec41fb67bbc209c3960ae1</p>
+<p>web.dat</p>
+<p class="hash-block">08224e4c619c7bbae1852d3a2d8dc1b7eb90d65bba9b73500ef7118af98e7e05</p>
+<p>upd.exe</p>
+<p class="hash-block">3dfae7b23f6d1fe6e37a19de0e3b1f39249d146a1d21102dcc37861d337a0633</p>
+<h2>IPs</h2>
+<p>216.120.203[.]26 (Shock Hosting — U.S)</p>
+<p>31.192.107[.]144 (HostKey — Russia)</p>
+  </div>
+  <div class="article-footer">
+    <p>First published on <a href="https://medium.com/@robel.y.campbell/byovd-reloaded-abusing-a-new-driver-to-kill-edr-d8ff902c0a97">Medium</a>.</p>
+    <div class="article-pager"><a class="pager-link" href="/blog/cve-2024-0980-okta-verify/"><span class="pager-label">Older</span><span class="pager-title">CVE-2024-0980: Okta Verify Arbitrary Code Execution Root Cause Analysis</span></a></div>
+    <a class="back-to-blog" href="/blog/">&larr; All posts</a>
+  </div>
+</article>
+
+
+<footer>
+  <div class="footer-inner">
+    <span class="footer-copy">&copy; 2026 Reverence Cyber LLC. All rights reserved.</span>
+    <span class="footer-vet">Veteran-Owned Small Business &middot; Dayton, OH</span>
+  </div>
+</footer>
+<script src="/js/lightbox.js"></script>
+<script src="/js/site.js"></script>
+
+</body>
+</html>
